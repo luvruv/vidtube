@@ -334,14 +334,9 @@ import { ApiError } from "../utils/ApiError.js";
 import User from "../models/user.models.js";
 import { uploadOnCloudinary, deleteFromCloudinary } from "../utils/cloudinary.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
-import { log } from "console";
-import { http } from "winston";
 import jwt from "jsonwebtoken";
-import { use } from "react";
-import { channel, subscribe } from "diagnostics_channel";
 import mongoose from "mongoose";
-import { watch } from "fs/promises";
-import { pipeline } from "stream";
+
 const generateAccessAndRefreshToken = async (userId) => {
     try {
         const user = await User.findById(userId);
@@ -424,9 +419,14 @@ const loginUser = asyncHandler(async (req, res) => {
     if (!email && !username) {
         throw new ApiError(400, "Email or username is required"); // ✅ logic fix
     }
-    const user = await User.findOne({
-        $or: [{ username }, { email }]
-    });
+    let user;
+    try {
+        user = await User.findOne({
+            $or: [{ username }, { email }]
+        });
+    } catch (error) {
+        throw error;
+    }
     // Additional logic should be written here (not added due to your instruction)
     if(!user) {
         throw new ApiError(404, "User nof found");
@@ -576,11 +576,6 @@ const updateUserCoverImage = asyncHandler(async (req, res) => {
     ).select("-password -refreshToken");
     return res.status(200).json(new ApiResponse(200, user, "Cover image uploaded successfully"));
 })
-const getUserChannelProfile = asyncHandler(async(req, res) => {
-    const {username} = req.params
-    if(!username?.trim()) {
-        throw new ApiError(400, "Username is required");
-    }});
     const getUserChannelProfile = asyncHandler(async(req, res) => {
     const {username} = req.params;
     if(!username?.trim()) {
@@ -641,45 +636,59 @@ const getUserChannelProfile = asyncHandler(async(req, res) => {
 });
 
 const getWatchHistory = asyncHandler(async(req, res) => {
-    const user = await User.aggregate(
+    let user;
+    try {
+        user = await User.aggregate(
         [
             {
                 $match: {
                     _id: new mongoose.Types.ObjectId(req.user?._id)
                 }
             },
-            $lookup, {
-                from: "videos",
-                localField: "watchHistory",
-                foreignField: "_id",
-                as: "watchHistory",
-                pipeline: [{
-                    $lookup: {
-                        from: "users",
-                        localField: "owner",
-                        foreignField: "_id",
-                        as: "owner",
-                        pipeline: [
-                            {
-                                $project: {
-                                    fullname: 1,
-                                    username: 1,
-                                    avatar: 1
-                                }
-                            },
-                            {
-                                $addFields: {
-                                    owner: {
-                                        $first: "owner"
+            {
+                $lookup: {
+                    from: "videos",
+                    localField: "watchHistory",
+                    foreignField: "_id",
+                    as: "watchHistory",
+                    pipeline: [{
+                        $lookup: {
+                            from: "users",
+                            localField: "owner",
+                            foreignField: "_id",
+                            as: "owner",
+                            pipeline: [
+                                {
+                                    $project: {
+                                        fullname: 1,
+                                        username: 1,
+                                        avatar: 1
+                                    }
+                                },
+                                {
+                                    $addFields: {
+                                        owner: {
+                                            $first: "$owner"
+                                        }
                                     }
                                 }
-                            }
-                        ]
-                    }
-                }]
+                            ]
+                        }
+                    }]
+                }
             }
         ]
+    );
+    } catch (error) {
+        throw error;
+    }
+    // In the aggregation we populate `watchHistory`; keep fallback for older/incorrect field names.
+    return res.status(200).json(
+        new ApiResponse(
+            200,
+            user?.[0]?.watchHistory ?? user?.[0]?.getWatchHistory,
+            "Watch History fetched succesfully"
+        )
     )
-    return res.status(200).json(new ApiResponse(200, user[0]?.getWatchHistory, "Watch History fetched succesfully"))
 })
 export { registerUser, generateAccessAndRefreshToken, loginUser, refreshAccessToken, logoutUser, changeCurrentPassword, getCurrentUser, updateAccountDetails, updateUserAvatar, updateUserCoverImage, getWatchHistory, getUserChannelProfile };

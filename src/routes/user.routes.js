@@ -1,45 +1,3 @@
-/*
-import { Router } from "express";
-import { registerUser } from "../controllers/user.controllers.js";
-import {upload} from "../middlewares/multer.middleware.js";
-const router = Router(); // <-- Fix: add ()
-router.route("/register").post(
-    upload.fields([
-        {
-            name: "avatar",
-            maxCount: 1
-        }, {
-            name: "coverImage",
-            maxCount: 1
-        }
-    ]),
-    registerUser);
-
-export default router;
-*/
-/*
-import { Router } from "express";
-import { registerUser } from "../controllers/user.controllers.js";
-import { upload } from "../middlewares/multer.middleware.js";
-
-const router = Router(); // ✅
-
-router.route("/register").post(
-    upload.fields([
-    {
-        name: "avatar",
-        maxCount: 1
-    },
-    {
-        name: "coverImage",
-        maxCount: 1
-    }
-    ]),
-    registerUser
-);
-
-export default router;
-*/
 import { Router } from "express";
 import { upload } from "../middlewares/multer.middleware.js";
 import { registerUser, loginUser, logoutUser, refreshAccessToken, changeCurrentPassword, getCurrentUser, getUserChannelProfile, updateAccountDetails, updateUserAvatar, updateUserCoverImage, getWatchHistory } from "../controllers/user.controllers.js";
@@ -55,7 +13,7 @@ router.post(
     ]),
     registerUser
 );
-router.route("/login").post(logoutUser);
+router.route("/login").post(loginUser);
 router.route("/refresh-token").post(refreshAccessToken);
 
 // secured routes
@@ -67,4 +25,5 @@ router.route("/update-account").patch(verifyJWT, updateAccountDetails);
 router.route("/avatar").patch(verifyJWT, upload.single("avatar"), updateUserAvatar);
 router.route("/cover-image").patch(verifyJWT, upload.single("coverImage"), updateUserCoverImage);
 router.route("/history").get(verifyJWT, getWatchHistory);
+
 export default router;
